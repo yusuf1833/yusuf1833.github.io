@@ -1,0 +1,2047 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拼豆生成器 - Perler Bead Generator</title>
+    <link rel="stylesheet" href="css/index.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1>🔮 拼豆生成器</h1>
+            <p class="subtitle">将图片转换为拼豆图纸,支持多品牌色值</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="main-layout">
+            <aside class="sidebar">
+                <div class="control-panel">
+                    <h3>设置面板</h3>
+
+                    <div class="form-group">
+                        <label>选择品牌</label>
+                        <select id="brand-select" onchange="app.updateBrand()">
+                            <option value="artkal">Artkal (阿特卡尔)</option>
+                            <option value="mard">Mard (马得)</option>
+                            <option value="manmanjia">漫漫家</option>
+                            <option value="perler">Perler (普乐)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>拼豆尺寸</label>
+                        <select id="bead-size" onchange="app.updateSettings()">
+                            <option value="mini">迷你豆 (2.6mm)</option>
+                            <option value="standard" selected>标准豆 (5mm)</option>
+                            <option value="pegboard">大板 (10mm)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>图纸尺寸 (正方形格数)</label>
+                        <input type="range" id="grid-size-slider" min="8" max="200" value="29" oninput="app.updateGridSize(this.value)">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666; margin-top: 5px;">
+                            <span>当前尺寸: <span id="grid-size-display">29</span> x <span id="grid-size-height-display">29</span></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>网格粒度 (采样细节)</label>
+                        <input type="range" id="sampling-scale" min="1" max="20" value="8" oninput="app.updateSamplingScale(this.value)">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666; margin-top: 5px;">
+                            <span>采样倍率: <span id="sampling-scale-display">8</span>x (越小越锐利)</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>颜色合并 (减少杂色)</label>
+                        <input type="range" id="merge-threshold" min="0" max="60" value="0" oninput="app.updateMergeSettings(this.value)">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666; margin-top: 5px;">
+                            <span>最小区域: <span id="merge-threshold-display">0</span> 格</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>颜色数量</label>
+                        <input type="range" id="color-count" min="8" max="291" value="32" oninput="app.updateColorCount(this.value)">
+                        <span id="color-count-display">32</span> 种颜色
+                    </div>
+
+                    <div class="form-group">
+                        <label>图像调整</label>
+                        <div class="adjustment-group">
+                            <div class="adjustment-item">
+                                <label>亮度</label>
+                                <input type="range" id="brightness" min="-100" max="100" value="0" oninput="app.updateImageAdjustment()">
+                                <span id="brightness-display">0</span>
+                            </div>
+                            <div class="adjustment-item">
+                                <label>对比度</label>
+                                <input type="range" id="contrast" min="-100" max="100" value="0" oninput="app.updateImageAdjustment()">
+                                <span id="contrast-display">0</span>
+                            </div>
+                            <div class="adjustment-item">
+                                <label>饱和度</label>
+                                <input type="range" id="saturation" min="-100" max="100" value="0" oninput="app.updateImageAdjustment()">
+                                <span id="saturation-display">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>显示选项</label>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="show-grid" checked onchange="app.render()">
+                                显示网格
+                            </label>
+                            <label>
+                                <input type="checkbox" id="show-coordinates" checked onchange="app.render()">
+                                显示坐标
+                            </label>
+                            <label>
+                                <input type="checkbox" id="show-color-codes" onchange="app.render()">
+                                显示色值代码
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>上传图片</label>
+                        <input type="file" id="image-upload" accept="image/*" onchange="app.handleImageUpload(event)">
+                        <button class="btn btn-secondary" onclick="document.getElementById('image-upload').click()">选择图片</button>
+                        
+                        <div id="image-preview-container" style="display: none; margin-top: 10px;">
+                            <label style="font-size: 0.85rem; color: #666; margin-bottom: 5px; display: block;">原图预览:</label>
+                            <img id="image-preview" src="" alt="原图预览" style="width: 100%; border-radius: 8px; border: 2px solid #e5e7eb;">
+                            <button class="btn btn-secondary btn-block" style="margin-top: 8px; font-size: 0.9rem;" onclick="app.openImageEditor()">✏️ 编辑原图 (抠图)</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <button class="btn btn-primary btn-block" onclick="app.generatePattern()">生成拼豆图纸</button>
+                    </div>
+
+                    <div class="form-group">
+                        <button class="btn btn-refresh btn-block" onclick="app.refreshPattern()">🔄 刷新配置</button>
+                    </div>
+
+                    <div class="form-group">
+                        <button class="btn btn-repair btn-block" onclick="app.smartRepair()">🔧 智能修复</button>
+                    </div>
+
+                    <div class="form-group">
+                        <button class="btn btn-success btn-block" onclick="app.downloadPattern()">下载图纸 (PNG)</button>
+                    </div>
+
+                    <div class="form-group">
+                        <button class="btn btn-info btn-block" onclick="app.exportColorList()">导出色值列表</button>
+                    </div>
+
+                <div class="color-legend">
+                    <h4>使用的颜色</h4>
+                    <div id="color-legend-content"></div>
+                </div>
+                </aside>
+
+            <div class="content-area">
+                <div class="preview-panel">
+                    <div class="preview-header">
+                        <h3>图纸预览</h3>
+                        <div class="zoom-controls">
+                            <button onclick="app.zoom(-0.1)">-</button>
+                            <span id="zoom-level">100%</span>
+                            <button onclick="app.zoom(0.1)">+</button>
+                        </div>
+                    </div>
+                    
+                    <div class="edit-toolbar-inline">
+                        <div class="edit-tools-row">
+                            <div class="tool-group-inline">
+                                <button id="tool-brush" class="tool-btn-inline active" onclick="app.selectTool('brush')" title="画笔">
+                                    ✏️
+                                </button>
+                                <button id="tool-fill" class="tool-btn-inline" onclick="app.selectTool('fill')" title="填充">
+                                    🪣
+                                </button>
+                                <button id="tool-eraser" class="tool-btn-inline" onclick="app.selectTool('eraser')" title="橡皮擦">
+                                    🧹
+                                </button>
+                            </div>
+                            <div class="color-picker-inline">
+                                <input type="color" id="edit-color-inline" value="#FF0000" onchange="app.updateEditColor()">
+                                <span id="edit-color-code-inline">A003</span>
+                            </div>
+                            <div class="action-group-inline">
+                                <button class="action-btn-inline" onclick="app.undo()" title="撤销">
+                                    ↩️
+                                </button>
+                                <button class="action-btn-inline" onclick="app.redo()" title="重做">
+                                    ↪️
+                                </button>
+                            </div>
+                            <button class="save-btn-inline" onclick="app.saveEdits()">💾</button>
+                        </div>
+                    </div>
+                    
+                    <div class="canvas-container" id="canvas-container">
+                        <canvas id="pattern-canvas"></canvas>
+                    </div>
+                </div>
+
+                <div class="info-panel">
+                    <div class="info-card">
+                        <h4>统计信息</h4>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">总格数:</span>
+                                <span class="stat-value" id="total-cells">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">使用颜色:</span>
+                                <span class="stat-value" id="used-colors">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">品牌:</span>
+                                <span class="stat-value" id="current-brand">Artkal</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <h4>使用说明</h4>
+                        <ol>
+                            <li>选择拼豆品牌和尺寸</li>
+                            <li>设置图纸大小和颜色数量</li>
+                            <li>上传图片或直接生成空白图纸</li>
+                            <li>点击"生成拼豆图纸"</li>
+                            <li>下载图纸或导出色值列表</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>© 2024 拼豆生成器 | 支持 Artkal、Mard、漫漫家、Perler 多品牌</p>
+    </footer>
+
+    <!-- 图片编辑器模态框 -->
+    <div id="image-editor-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑原图 (抠图)</h3>
+                <span class="close-modal" onclick="app.closeImageEditor()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="editor-toolbar">
+                    <div class="tool-group">
+                        <button id="img-tool-eraser" class="tool-btn active" onclick="app.setImageTool('eraser')" title="橡皮擦 (去除背景)">🧹 橡皮擦</button>
+                        <button id="img-tool-restore" class="tool-btn" onclick="app.setImageTool('restore')" title="恢复画笔 (还原内容)">🖌️ 恢复画笔</button>
+                    </div>
+                    <div class="tool-group">
+                        <label>笔刷大小:</label>
+                        <input type="range" id="brush-size" min="1" max="50" value="20" oninput="document.getElementById('brush-size-display').textContent = this.value">
+                        <span id="brush-size-display">20</span>
+                    </div>
+                    <div class="tool-group">
+                        <button class="tool-btn" onclick="app.undoImageEdit()" title="撤销">↩️ 撤销</button>
+                    </div>
+                </div>
+                <div class="editor-canvas-container">
+                    <canvas id="image-editor-canvas"></canvas>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="app.closeImageEditor()">取消</button>
+                    <button class="btn btn-primary" onclick="app.saveImageEditorChanges()">保存修改并重新生成</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const app = {
+            state: {
+                brand: 'artkal',
+                beadSize: 'standard',
+                gridWidth: 29,
+                gridHeight: 29,
+                samplingScale: 8, // 新增采样倍率
+                colorCount: 32,
+                mergeThreshold: 0,
+                showGrid: true,
+                showCoordinates: true,
+                showColorCodes: false,
+                zoom: 1,
+                brightness: 0,
+                contrast: 0,
+                saturation: 0,
+                imageData: null,
+                originalImageData: null, // 新增：保存用户上传的最原始图片，用于恢复
+                pattern: null,
+                colorMap: {},
+                editTool: 'brush',
+                editColor: null,
+                editHistory: [],
+                editHistoryIndex: -1,
+                isMouseDown: false,
+                
+                // 原图编辑相关状态
+                imgEditState: {
+                    canvas: null,         // 编辑画布
+                    ctx: null,            // 编辑上下文
+                    tool: 'eraser',       // 当前工具：eraser 或 restore
+                    isDrawing: false,
+                    history: [],          // 编辑历史栈
+                    historyIndex: -1,
+                    brushSize: 20
+                }
+            },
+
+            brands: {
+                artkal: {
+                    name: 'Artkal (全色域 291色)',
+                    colors: [
+                        { code: 'A001', name: '黑色', hex: '#000000' },
+                        { code: 'A002', name: '白色', hex: '#FFFFFF' },
+                        { code: 'A003', name: '红色', hex: '#FF0000' },
+                        { code: 'A004', name: '深红', hex: '#8B0000' },
+                        { code: 'A005', name: '橙色', hex: '#FFA500' },
+                        { code: 'A006', name: '黄色', hex: '#FFFF00' },
+                        { code: 'A007', name: '绿色', hex: '#00FF00' },
+                        { code: 'A008', name: '深绿', hex: '#006400' },
+                        { code: 'A009', name: '蓝色', hex: '#0000FF' },
+                        { code: 'A010', name: '深蓝', hex: '#00008B' },
+                        { code: 'A011', name: '紫色', hex: '#800080' },
+                        { code: 'A012', name: '粉色', hex: '#FFC0CB' },
+                        { code: 'A013', name: '棕色', hex: '#A52A2A' },
+                        { code: 'A014', name: '灰色', hex: '#808080' },
+                        { code: 'A015', name: '浅灰', hex: '#D3D3D3' },
+                        { code: 'A016', name: '青色', hex: '#00FFFF' },
+                        { code: 'A017', name: '洋红', hex: '#FF00FF' },
+                        { code: 'A018', name: '金色', hex: '#FFD700' },
+                        { code: 'A019', name: '银色', hex: '#C0C0C0' },
+                        { code: 'A020', name: '浅蓝', hex: '#ADD8E6' },
+                        { code: 'A021', name: '浅绿', hex: '#90EE90' },
+                        { code: 'A022', name: '浅黄', hex: '#FFFFE0' },
+                        { code: 'A023', name: '浅粉', hex: '#FFB6C1' },
+                        { code: 'A024', name: '浅紫', hex: '#E6E6FA' },
+                        { code: 'A025', name: '深橙', hex: '#FF8C00' },
+                        { code: 'A026', name: '深黄', hex: '#DAA520' },
+                        { code: 'A027', name: '深青', hex: '#008B8B' },
+                        { code: 'A028', name: '深粉', hex: '#DB7093' },
+                        { code: 'A029', name: '深紫', hex: '#4B0082' },
+                        { code: 'A030', name: '深棕', hex: '#8B4513' },
+                        { code: 'A031', name: '浅橙', hex: '#FFDAB9' },
+                        { code: 'A032', name: '浅红', hex: '#FF6347' }
+                    ]
+                },
+                mard: {
+                    name: 'Mard (马得)',
+                    colors: [
+                        { code: 'M001', name: '黑色', hex: '#1A1A1A' },
+                        { code: 'M002', name: '白色', hex: '#F5F5F5' },
+                        { code: 'M003', name: '红色', hex: '#E63946' },
+                        { code: 'M004', name: '深红', hex: '#9D0208' },
+                        { code: 'M005', name: '橙色', hex: '#F4A261' },
+                        { code: 'M006', name: '黄色', hex: '#E9C46A' },
+                        { code: 'M007', name: '绿色', hex: '#2A9D8F' },
+                        { code: 'M008', name: '深绿', hex: '#264653' },
+                        { code: 'M009', name: '蓝色', hex: '#457B9D' },
+                        { code: 'M010', name: '深蓝', hex: '#1D3557' },
+                        { code: 'M011', name: '紫色', hex: '#9B5DE5' },
+                        { code: 'M012', name: '粉色', hex: '#F15BB5' },
+                        { code: 'M013', name: '棕色', hex: '#8B5A2B' },
+                        { code: 'M014', name: '灰色', hex: '#6C757D' },
+                        { code: 'M015', name: '浅灰', hex: '#E9ECEF' },
+                        { code: 'M016', name: '青色', hex: '#00B4D8' },
+                        { code: 'M017', name: '洋红', hex: '#F72585' },
+                        { code: 'M018', name: '金色', hex: '#FFB703' },
+                        { code: 'M019', name: '银色', hex: '#ADB5BD' },
+                        { code: 'M020', name: '浅蓝', hex: '#90E0EF' },
+                        { code: 'M021', name: '浅绿', hex: '#80ED99' },
+                        { code: 'M022', name: '浅黄', hex: '#FFFEA0' },
+                        { code: 'M023', name: '浅粉', hex: '#FFC8DD' },
+                        { code: 'M024', name: '浅紫', hex: '#CDB4DB' },
+                        { code: 'M025', name: '深橙', hex: '#FB8500' },
+                        { code: 'M026', name: '深黄', hex: '#FFB703' },
+                        { code: 'M027', name: '深青', hex: '#0077B6' },
+                        { code: 'M028', name: '深粉', hex: '#FF006E' },
+                        { code: 'M029', name: '深紫', hex: '#7209B7' },
+                        { code: 'M030', name: '深棕', hex: '#6B4423' },
+                        { code: 'M031', name: '浅橙', hex: '#FFD166' },
+                        { code: 'M032', name: '浅红', hex: '#EF476F' }
+                    ]
+                },
+                manmanjia: {
+                    name: '漫漫家',
+                    colors: [
+                        { code: 'MM001', name: '黑色', hex: '#212529' },
+                        { code: 'MM002', name: '白色', hex: '#FFFFFF' },
+                        { code: 'MM003', name: '红色', hex: '#DC3545' },
+                        { code: 'MM004', name: '深红', hex: '#8B0000' },
+                        { code: 'MM005', name: '橙色', hex: '#FD7E14' },
+                        { code: 'MM006', name: '黄色', hex: '#FFC107' },
+                        { code: 'MM007', name: '绿色', hex: '#28A745' },
+                        { code: 'MM008', name: '深绿', hex: '#155724' },
+                        { code: 'MM009', name: '蓝色', hex: '#007BFF' },
+                        { code: 'MM010', name: '深蓝', hex: '#004085' },
+                        { code: 'MM011', name: '紫色', hex: '#6F42C1' },
+                        { code: 'MM012', name: '粉色', hex: '#E83E8C' },
+                        { code: 'MM013', name: '棕色', hex: '#795548' },
+                        { code: 'MM014', name: '灰色', hex: '#6C757D' },
+                        { code: 'MM015', name: '浅灰', hex: '#E9ECEF' },
+                        { code: 'MM016', name: '青色', hex: '#17A2B8' },
+                        { code: 'MM017', name: '洋红', hex: '#D63384' },
+                        { code: 'MM018', name: '金色', hex: '#FFD700' },
+                        { code: 'MM019', name: '银色', hex: '#C0C0C0' },
+                        { code: 'MM020', name: '浅蓝', hex: '#B3D9FF' },
+                        { code: 'MM021', name: '浅绿', hex: '#A8E6CF' },
+                        { code: 'MM022', name: '浅黄', hex: '#FFF9C4' },
+                        { code: 'MM023', name: '浅粉', hex: '#FFB3E6' },
+                        { code: 'MM024', name: '浅紫', hex: '#D1C4E9' },
+                        { code: 'MM025', name: '深橙', hex: '#E65100' },
+                        { code: 'MM026', name: '深黄', hex: '#F57F17' },
+                        { code: 'MM027', name: '深青', hex: '#006064' },
+                        { code: 'MM028', name: '深粉', hex: '#C2185B' },
+                        { code: 'MM029', name: '深紫', hex: '#4A148C' },
+                        { code: 'MM030', name: '深棕', hex: '#3E2723' },
+                        { code: 'MM031', name: '浅橙', hex: '#FFCC80' },
+                        { code: 'MM032', name: '浅红', hex: '#EF5350' }
+                    ]
+                },
+                perler: {
+                    name: 'Perler (普乐)',
+                    colors: [
+                        { code: 'P001', name: '黑色', hex: '#000000' },
+                        { code: 'P002', name: '白色', hex: '#FFFFFF' },
+                        { code: 'P003', name: '红色', hex: '#FF0000' },
+                        { code: 'P004', name: '深红', hex: '#8B0000' },
+                        { code: 'P005', name: '橙色', hex: '#FFA500' },
+                        { code: 'P006', name: '黄色', hex: '#FFFF00' },
+                        { code: 'P007', name: '绿色', hex: '#008000' },
+                        { code: 'P008', name: '深绿', hex: '#006400' },
+                        { code: 'P009', name: '蓝色', hex: '#0000FF' },
+                        { code: 'P010', name: '深蓝', hex: '#00008B' },
+                        { code: 'P011', name: '紫色', hex: '#800080' },
+                        { code: 'P012', name: '粉色', hex: '#FFC0CB' },
+                        { code: 'P013', name: '棕色', hex: '#A52A2A' },
+                        { code: 'P014', name: '灰色', hex: '#808080' },
+                        { code: 'P015', name: '浅灰', hex: '#D3D3D3' },
+                        { code: 'P016', name: '青色', hex: '#00FFFF' },
+                        { code: 'P017', name: '洋红', hex: '#FF00FF' },
+                        { code: 'P018', name: '金色', hex: '#FFD700' },
+                        { code: 'P019', name: '银色', hex: '#C0C0C0' },
+                        { code: 'P020', name: '浅蓝', hex: '#ADD8E6' },
+                        { code: 'P021', name: '浅绿', hex: '#90EE90' },
+                        { code: 'P022', name: '浅黄', hex: '#FFFFE0' },
+                        { code: 'P023', name: '浅粉', hex: '#FFB6C1' },
+                        { code: 'P024', name: '浅紫', hex: '#E6E6FA' },
+                        { code: 'P025', name: '深橙', hex: '#FF8C00' },
+                        { code: 'P026', name: '深黄', hex: '#DAA520' },
+                        { code: 'P027', name: '深青', hex: '#008B8B' },
+                        { code: 'P028', name: '深粉', hex: '#DB7093' },
+                        { code: 'P029', name: '深紫', hex: '#4B0082' },
+                        { code: 'P030', name: '深棕', hex: '#8B4513' },
+                        { code: 'P031', name: '浅橙', hex: '#FFDAB9' },
+                        { code: 'P032', name: '浅红', hex: '#FF6347' }
+                    ]
+                }
+            },
+
+            init() {
+                this.generateFullColorPalette();
+                this.loadSettings();
+                this.setupCanvas();
+                this.render();
+                this.updateStats();
+                this.initEditTools();
+            },
+
+            generateFullColorPalette() {
+                // 确保 Artkal 有 291 个颜色
+                const artkal = this.brands.artkal;
+                const existingCount = artkal.colors.length;
+                const targetCount = 291;
+                
+                if (existingCount >= targetCount) return;
+                
+                // 使用 HSL 空间生成补充颜色，确保色域覆盖
+                // 我们需要生成 291 - 32 = 259 个颜色
+                
+                let extIndex = 1;
+                
+                // 1. 生成灰度/黑白补充 (10个)
+                for (let i = 0; i < 10; i++) {
+                    const l = Math.round(10 + (i / 9) * 80); // 10% - 90% Lightness
+                    const hex = this.hslToHex(0, 0, l);
+                    artkal.colors.push({
+                        code: `EXT-G${extIndex++}`,
+                        name: `补充灰${i+1}`,
+                        hex: hex
+                    });
+                }
+                
+                // 2. 生成彩色补充 (249个)
+                // 按照色相环 Hue 0-360 采样
+                // 每个色相生成多个明度和饱和度变体
+                
+                const hues = 36; // 36个色相，每10度一个
+                const variations = 7; // 每个色相7个变体
+                // 36 * 7 = 252，加上之前的灰度，足够覆盖到 291
+                
+                for (let h = 0; h < 360; h += (360/hues)) {
+                    // S: 饱和度, L: 亮度
+                    // 生成 7 种变体：
+                    // 高饱和: 亮/中/暗
+                    // 中饱和: 亮/中/暗
+                    // 低饱和: 中
+                    
+                    const vars = [
+                        {s: 90, l: 80}, {s: 90, l: 50}, {s: 90, l: 30},
+                        {s: 60, l: 80}, {s: 60, l: 50}, {s: 60, l: 30},
+                        {s: 30, l: 50}
+                    ];
+                    
+                    for (const v of vars) {
+                        if (artkal.colors.length >= targetCount) break;
+                        
+                        const hex = this.hslToHex(h, v.s, v.l);
+                        // 检查是否与现有颜色太接近（简单的字符串比较，或者略过）
+                        // 为了性能，这里直接添加
+                        artkal.colors.push({
+                            code: `EXT-${artkal.colors.length + 1}`,
+                            name: `补充色 ${artkal.colors.length + 1}`,
+                            hex: hex
+                        });
+                    }
+                }
+                
+                // 如果还不够，补齐
+                while (artkal.colors.length < targetCount) {
+                    const hex = this.hslToHex(Math.random() * 360, 50 + Math.random() * 50, 20 + Math.random() * 60);
+                    artkal.colors.push({
+                        code: `EXT-${artkal.colors.length + 1}`,
+                        name: `补充色 ${artkal.colors.length + 1}`,
+                        hex: hex
+                    });
+                }
+            },
+            
+            hslToHex(h, s, l) {
+                l /= 100;
+                const a = s * Math.min(l, 1 - l) / 100;
+                const f = n => {
+                    const k = (n + h / 30) % 12;
+                    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                    return Math.round(255 * color).toString(16).padStart(2, '0');
+                };
+                return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+            },
+
+            initEditTools() {
+                this.state.editTool = 'brush';
+                this.state.editColor = this.brands[this.state.brand].colors[2];
+                document.getElementById('edit-color-inline').value = this.state.editColor.hex;
+                document.getElementById('edit-color-code-inline').textContent = this.state.editColor.code;
+                
+                this.state.editHistory = [];
+                this.state.editHistoryIndex = -1;
+                
+                this.bindCanvasEvents();
+            },
+
+            setupCanvas() {
+                const canvas = document.getElementById('pattern-canvas');
+                const container = document.getElementById('canvas-container');
+                
+                const width = this.state.gridWidth * 20 * this.state.zoom;
+                const height = this.state.gridHeight * 20 * this.state.zoom;
+                
+                canvas.width = width;
+                canvas.height = height;
+                canvas.style.width = width + 'px';
+                canvas.style.height = height + 'px';
+            },
+
+            updateBrand() {
+                this.state.brand = document.getElementById('brand-select').value;
+                document.getElementById('current-brand').textContent = this.brands[this.state.brand].name;
+                this.saveSettings();
+                if (this.state.pattern) {
+                    this.generatePattern();
+                }
+            },
+
+            updateSettings() {
+                this.state.beadSize = document.getElementById('bead-size').value;
+                this.state.showGrid = document.getElementById('show-grid').checked;
+                this.state.showCoordinates = document.getElementById('show-coordinates').checked;
+                this.state.showColorCodes = document.getElementById('show-color-codes').checked;
+                this.saveSettings();
+                this.setupCanvas();
+                if (this.state.pattern) {
+                    this.generatePattern();
+                } else {
+                    this.render();
+                }
+            },
+
+            updateGridSize(value) {
+                const size = parseInt(value);
+                
+                // 强制使用 1:1 的正方形尺寸
+                this.state.gridWidth = size;
+                this.state.gridHeight = size;
+
+                document.getElementById('grid-size-display').textContent = this.state.gridWidth;
+                document.getElementById('grid-size-height-display').textContent = this.state.gridHeight;
+                
+                this.saveSettings();
+                this.setupCanvas();
+                
+                // 使用防抖，避免滑动时频繁生成
+                if (this.updateTimer) clearTimeout(this.updateTimer);
+                this.updateTimer = setTimeout(() => {
+                    if (this.state.pattern) {
+                        this.generatePattern();
+                    } else {
+                        this.render();
+                    }
+                }, 100);
+            },
+
+            updateSamplingScale(value) {
+                this.state.samplingScale = parseInt(value);
+                document.getElementById('sampling-scale-display').textContent = this.state.samplingScale;
+                this.saveSettings();
+                
+                // 防抖更新
+                if (this.updateTimer) clearTimeout(this.updateTimer);
+                this.updateTimer = setTimeout(() => {
+                    if (this.state.pattern) {
+                        this.generatePattern();
+                    }
+                }, 100);
+            },
+
+            updateColorCount(value) {
+                this.state.colorCount = parseInt(value);
+                document.getElementById('color-count-display').textContent = value;
+                this.saveSettings();
+            },
+
+            updateMergeSettings(value) {
+                this.state.mergeThreshold = parseInt(value);
+                document.getElementById('merge-threshold-display').textContent = value;
+                this.saveSettings();
+                
+                // 防抖更新
+                if (this.updateTimer) clearTimeout(this.updateTimer);
+                this.updateTimer = setTimeout(() => {
+                    if (this.state.pattern) {
+                        this.generatePattern();
+                    }
+                }, 100);
+            },
+
+            updateImageAdjustment() {
+                this.state.brightness = parseInt(document.getElementById('brightness').value);
+                this.state.contrast = parseInt(document.getElementById('contrast').value);
+                this.state.saturation = parseInt(document.getElementById('saturation').value);
+
+                document.getElementById('brightness-display').textContent = this.state.brightness;
+                document.getElementById('contrast-display').textContent = this.state.contrast;
+                document.getElementById('saturation-display').textContent = this.state.saturation;
+
+                this.saveSettings();
+
+                if (this.state.imageData) {
+                    this.generatePattern();
+                }
+            },
+
+            handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.state.imageData = img;
+                        // 保存一份原始图片备份，用于恢复
+                        this.state.originalImageData = img.cloneNode(); 
+                        
+                        // 显示预览图
+                        const previewImg = document.getElementById('image-preview');
+                        const previewContainer = document.getElementById('image-preview-container');
+                        previewImg.src = e.target.result;
+                        previewContainer.style.display = 'block';
+                        
+                        // 重置并重新计算尺寸
+                        const slider = document.getElementById('grid-size-slider');
+                        this.updateGridSize(slider.value);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            },
+
+            generatePattern() {
+                if (!this.state.imageData) {
+                    this.render();
+                    return;
+                }
+
+                try {
+                    const { gridWidth, gridHeight, brand, colorCount, brightness, contrast, saturation } = this.state;
+                    const samplingScale = this.state.samplingScale || 8; // 获取采样倍率，默认为 8
+                    const brandColors = this.brands[brand].colors.slice(0, colorCount);
+
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // 使用动态的 scale
+                    const scale = samplingScale;
+                    tempCanvas.width = gridWidth * scale;
+                    tempCanvas.height = gridHeight * scale;
+
+                    tempCtx.imageSmoothingEnabled = true;
+                    tempCtx.imageSmoothingQuality = 'high';
+                    tempCtx.drawImage(this.state.imageData, 0, 0, gridWidth * scale, gridHeight * scale);
+                    
+                    let imageData = tempCtx.getImageData(0, 0, gridWidth * scale, gridHeight * scale);
+                    
+                    imageData = this.applyImageAdjustments(imageData, brightness, contrast, saturation);
+                    imageData = this.applySharpen(imageData);
+                    const edgeMap = this.detectEdges(imageData, gridWidth * scale, gridHeight * scale);
+                    
+                    const pixels = imageData.data;
+
+                    this.state.pattern = [];
+                    this.state.colorMap = {};
+
+                    for (let y = 0; y < gridHeight; y++) {
+                        const row = [];
+                        for (let x = 0; x < gridWidth; x++) {
+                            let totalR = 0, totalG = 0, totalB = 0, totalA = 0;
+                            let edgeStrength = 0;
+                            let count = 0;
+
+                            for (let sy = 0; sy < scale; sy++) {
+                                for (let sx = 0; sx < scale; sx++) {
+                                    const px = x * scale + sx;
+                                    const py = y * scale + sy;
+                                    const i = (py * gridWidth * scale + px) * 4;
+                                    
+                                    totalR += pixels[i];
+                                    totalG += pixels[i + 1];
+                                    totalB += pixels[i + 2];
+                                    totalA += pixels[i + 3];
+                                    
+                                    if (edgeMap[py] && edgeMap[py][px]) {
+                                        edgeStrength += edgeMap[py][px];
+                                    }
+                                    
+                                    count++;
+                                }
+                            }
+
+                            let r = Math.round(totalR / count);
+                            let g = Math.round(totalG / count);
+                            let b = Math.round(totalB / count);
+                            let a = Math.round(totalA / count);
+
+                            // 如果透明度低，或者该位置原本就是空的（被擦除），则不填充颜色
+                            if (a < 128) {
+                                row.push(null);
+                            } else {
+                                const avgEdgeStrength = edgeStrength / count;
+                                
+                                if (avgEdgeStrength > 30) {
+                                    r = Math.min(255, r * 1.2);
+                                    g = Math.min(255, g * 1.2);
+                                    b = Math.min(255, b * 1.2);
+                                }
+                                
+                                const closestColor = this.findClosestColor(r, g, b, brandColors);
+                                row.push(closestColor);
+                                this.state.colorMap[closestColor.code] = closestColor;
+                            }
+                        }
+                        this.state.pattern.push(row);
+                    }
+
+                    // 应用颜色合并（去除杂色）
+                    if (this.state.mergeThreshold > 0) {
+                        this.mergeSmallRegions(this.state.mergeThreshold);
+                    }
+
+                    this.applyContourCompensation();
+                    this.render();
+                    this.updateStats();
+                    this.updateColorLegend();
+                } catch (error) {
+                    console.error('生成拼豆图纸时出错:', error);
+                    alert('生成拼豆图纸失败: ' + error.message);
+                }
+            },
+
+            applyImageAdjustments(imageData, brightness, contrast, saturation) {
+                const data = imageData.data;
+                const brightnessFactor = brightness;
+                const contrastFactor = (contrast + 100) / 100;
+                const saturationFactor = (saturation + 100) / 100;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    let r = data[i];
+                    let g = data[i + 1];
+                    let b = data[i + 2];
+
+                    r += brightnessFactor;
+                    g += brightnessFactor;
+                    b += brightnessFactor;
+
+                    r = Math.min(255, Math.max(0, r));
+                    g = Math.min(255, Math.max(0, g));
+                    b = Math.min(255, Math.max(0, b));
+
+                    r = ((r - 128) * contrastFactor) + 128;
+                    g = ((g - 128) * contrastFactor) + 128;
+                    b = ((b - 128) * contrastFactor) + 128;
+
+                    r = Math.min(255, Math.max(0, r));
+                    g = Math.min(255, Math.max(0, g));
+                    b = Math.min(255, Math.max(0, b));
+
+                    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                    r = gray + saturationFactor * (r - gray);
+                    g = gray + saturationFactor * (g - gray);
+                    b = gray + saturationFactor * (b - gray);
+
+                    data[i] = Math.min(255, Math.max(0, r));
+                    data[i + 1] = Math.min(255, Math.max(0, g));
+                    data[i + 2] = Math.min(255, Math.max(0, b));
+                }
+
+                return imageData;
+            },
+
+            enhanceContrast(imageData) {
+                const data = imageData.data;
+                const factor = 1.3;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    data[i] = Math.min(255, Math.max(0, ((data[i] - 128) * factor) + 128));
+                    data[i + 1] = Math.min(255, Math.max(0, ((data[i + 1] - 128) * factor) + 128));
+                    data[i + 2] = Math.min(255, Math.max(0, ((data[i + 2] - 128) * factor) + 128));
+                }
+                
+                return imageData;
+            },
+
+            applySharpen(imageData) {
+                const data = imageData.data;
+                const width = imageData.width;
+                const height = imageData.height;
+                const copy = new Uint8ClampedArray(data);
+                
+                const kernel = [
+                    0, -1, 0,
+                    -1, 5, -1,
+                    0, -1, 0
+                ];
+                
+                for (let y = 1; y < height - 1; y++) {
+                    for (let x = 1; x < width - 1; x++) {
+                        for (let c = 0; c < 3; c++) {
+                            let sum = 0;
+                            for (let ky = -1; ky <= 1; ky++) {
+                                for (let kx = -1; kx <= 1; kx++) {
+                                    const idx = ((y + ky) * width + (x + kx)) * 4 + c;
+                                    sum += copy[idx] * kernel[(ky + 1) * 3 + (kx + 1)];
+                                }
+                            }
+                            data[(y * width + x) * 4 + c] = Math.min(255, Math.max(0, sum));
+                        }
+                    }
+                }
+                
+                return imageData;
+            },
+
+            detectEdges(imageData, width, height) {
+                const data = imageData.data;
+                const edgeMap = [];
+                
+                const sobelX = [
+                    -1, 0, 1,
+                    -2, 0, 2,
+                    -1, 0, 1
+                ];
+                
+                const sobelY = [
+                    -1, -2, -1,
+                    0, 0, 0,
+                    1, 2, 1
+                ];
+                
+                for (let y = 0; y < height; y++) {
+                    edgeMap[y] = [];
+                    for (let x = 0; x < width; x++) {
+                        if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
+                            edgeMap[y][x] = 0;
+                            continue;
+                        }
+                        
+                        let gx = 0, gy = 0;
+                        
+                        for (let ky = -1; ky <= 1; ky++) {
+                            for (let kx = -1; kx <= 1; kx++) {
+                                const idx = ((y + ky) * width + (x + kx)) * 4;
+                                const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                                const kernelIdx = (ky + 1) * 3 + (kx + 1);
+                                
+                                gx += gray * sobelX[kernelIdx];
+                                gy += gray * sobelY[kernelIdx];
+                            }
+                        }
+                        
+                        edgeMap[y][x] = Math.sqrt(gx * gx + gy * gy);
+                    }
+                }
+                
+                return edgeMap;
+            },
+
+            mergeSmallRegions(threshold) {
+                const { gridWidth, gridHeight, pattern } = this.state;
+                if (!pattern) return;
+
+                const visited = new Array(gridHeight).fill(0).map(() => new Array(gridWidth).fill(false));
+                
+                // 遍历所有点寻找连通区域
+                for (let y = 0; y < gridHeight; y++) {
+                    for (let x = 0; x < gridWidth; x++) {
+                        if (!visited[y][x] && pattern[y][x] !== null) {
+                            const region = this.findConnectedRegion(x, y, visited);
+                            
+                            // 如果区域大小小于阈值，则进行合并
+                            if (region.pixels.length <= threshold) {
+                                this.mergeRegionToNeighbors(region);
+                            }
+                        }
+                    }
+                }
+            },
+
+            findConnectedRegion(startX, startY, visited) {
+                const { gridWidth, gridHeight, pattern } = this.state;
+                const targetColor = pattern[startY][startX];
+                const pixels = [];
+                const queue = [[startX, startY]];
+                visited[startY][startX] = true;
+                
+                const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]]; // 4-neighbor connectivity
+                
+                while (queue.length > 0) {
+                    const [x, y] = queue.shift();
+                    pixels.push({x, y});
+                    
+                    for (const [dx, dy] of directions) {
+                        const nx = x + dx;
+                        const ny = y + dy;
+                        
+                        if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
+                            if (!visited[ny][nx] && pattern[ny][nx] !== null && pattern[ny][nx].code === targetColor.code) {
+                                visited[ny][nx] = true;
+                                queue.push([nx, ny]);
+                            }
+                        }
+                    }
+                }
+                
+                return { pixels, color: targetColor };
+            },
+
+            mergeRegionToNeighbors(region) {
+                const { gridWidth, gridHeight, pattern } = this.state;
+                const neighborColors = {};
+                const directions = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]]; // 8-neighbor for boundary check
+                
+                // 统计该区域外围的颜色
+                for (const pixel of region.pixels) {
+                    for (const [dx, dy] of directions) {
+                        const nx = pixel.x + dx;
+                        const ny = pixel.y + dy;
+                        
+                        if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
+                            const neighborColor = pattern[ny][nx];
+                            // 必须是有效颜色，且不是当前区域的颜色
+                            if (neighborColor !== null && neighborColor.code !== region.color.code) {
+                                neighborColors[neighborColor.code] = (neighborColors[neighborColor.code] || 0) + 1;
+                            }
+                        }
+                    }
+                }
+                
+                // 找到出现次数最多的邻居颜色
+                let maxCount = 0;
+                let bestColorCode = null;
+                for (const code in neighborColors) {
+                    if (neighborColors[code] > maxCount) {
+                        maxCount = neighborColors[code];
+                        bestColorCode = code;
+                    }
+                }
+                
+                // 如果找到了邻居颜色，将整个区域替换为该颜色
+                if (bestColorCode) {
+                    // 需要从 brands 数据或 colorMap 中找到对应的颜色对象
+                    // 这里可以直接从 pattern 中找一个示例，或者使用 state.colorMap
+                    // 为了安全，我们重新查找
+                    let targetColorObj = this.state.colorMap[bestColorCode];
+                    
+                    // 如果 colorMap 中没有（不太可能），尝试从邻居中抓一个
+                    if (!targetColorObj) {
+                        // 寻找任意一个该颜色的邻居
+                        // ...省略复杂逻辑，直接用 colorMap 应该没问题
+                    }
+
+                    if (targetColorObj) {
+                        for (const pixel of region.pixels) {
+                            pattern[pixel.y][pixel.x] = targetColorObj;
+                        }
+                    }
+                }
+            },
+
+            applyContourCompensation() {
+                const { gridWidth, gridHeight } = this.state;
+                const pattern = this.state.pattern;
+                // 注意：这里原本会把空洞填成黑色，现在我们需要移除这个逻辑，或者只在非透明背景下填充
+                // 如果用户希望抠图部分是白色的，那么这里就不应该强制填黑
+                
+                // 暂时注释掉这个逻辑，因为抠图后不应该自动把周围填黑
+                /*
+                const blackColor = { code: 'BLACK', name: '黑色', hex: '#000000' };
+                
+                for (let y = 0; y < gridHeight; y++) {
+                    for (let x = 0; x < gridWidth; x++) {
+                        if (pattern[y][x] !== null) {
+                            const neighbors = this.getNeighborPositions(x, y);
+                            for (const [nx, ny] of neighbors) {
+                                if (pattern[ny][nx] === null) {
+                                    pattern[ny][nx] = blackColor;
+                                    this.state.colorMap['BLACK'] = blackColor;
+                                }
+                            }
+                        }
+                    }
+                }
+                */
+            },
+
+            getNeighborPositions(x, y) {
+                const positions = [];
+                const { gridWidth, gridHeight } = this.state;
+                
+                const directions = [
+                    [-1, 0], [1, 0], [0, -1], [0, 1],
+                    [-1, -1], [1, -1], [-1, 1], [1, 1]
+                ];
+                
+                for (const [dx, dy] of directions) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    
+                    if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
+                        positions.push([nx, ny]);
+                    }
+                }
+                
+                return positions;
+            },
+
+            getNeighborColors(x, y) {
+                const neighbors = [];
+                const pattern = this.state.pattern;
+                const { gridWidth, gridHeight } = this.state;
+                
+                const directions = [
+                    [-1, 0], [1, 0], [0, -1], [0, 1],
+                    [-1, -1], [1, -1], [-1, 1], [1, 1]
+                ];
+                
+                for (const [dx, dy] of directions) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    
+                    if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
+                        if (pattern[ny][nx] !== null) {
+                            neighbors.push(pattern[ny][nx]);
+                        }
+                    }
+                }
+                
+                return neighbors;
+            },
+
+            getDominantColor(colors) {
+                const colorCount = {};
+                
+                for (const color of colors) {
+                    const key = color.code;
+                    colorCount[key] = (colorCount[key] || 0) + 1;
+                }
+                
+                let maxCount = 0;
+                let dominant = colors[0];
+                
+                for (const color of colors) {
+                    if (colorCount[color.code] > maxCount) {
+                        maxCount = colorCount[color.code];
+                        dominant = color;
+                    }
+                }
+                
+                return dominant;
+            },
+
+            smartRepair() {
+                if (!this.state.pattern || this.state.pattern.length === 0) {
+                    alert('请先生成拼豆图纸');
+                    return;
+                }
+
+                this.removeNoise();
+                this.smoothJaggedEdges();
+                this.alignPixels();
+                
+                this.render();
+                this.updateColorLegend();
+                alert('智能修复完成!');
+            },
+
+            removeNoise() {
+                const { gridWidth, gridHeight } = this.state;
+                const pattern = this.state.pattern;
+                let hasChanges = true;
+                
+                while (hasChanges) {
+                    hasChanges = false;
+                    
+                    for (let y = 0; y < gridHeight; y++) {
+                        for (let x = 0; x < gridWidth; x++) {
+                            if (pattern[y][x] !== null) {
+                                const neighbors = this.getNeighborColors(x, y);
+                                const sameColorCount = neighbors.filter(n => n && n.code === pattern[y][x].code).length;
+                                
+                                if (neighbors.length > 0 && sameColorCount === 0) {
+                                    const dominantColor = this.getDominantColor(neighbors);
+                                    pattern[y][x] = dominantColor;
+                                    hasChanges = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+
+            smoothJaggedEdges() {
+                const { gridWidth, gridHeight } = this.state;
+                const pattern = this.state.pattern;
+                const newPattern = JSON.parse(JSON.stringify(pattern));
+                
+                for (let y = 1; y < gridHeight - 1; y++) {
+                    for (let x = 1; x < gridWidth - 1; x++) {
+                        if (pattern[y][x] !== null) {
+                            const currentColor = pattern[y][x];
+                            const neighbors = this.getNeighborColors(x, y);
+                            
+                            if (neighbors.length >= 3) {
+                                const colorGroups = {};
+                                for (const n of neighbors) {
+                                    if (n) {
+                                        colorGroups[n.code] = (colorGroups[n.code] || 0) + 1;
+                                    }
+                                }
+                                
+                                const maxCount = Math.max(...Object.values(colorGroups));
+                                if (maxCount >= 3) {
+                                    const dominantCode = Object.keys(colorGroups).find(key => colorGroups[key] === maxCount);
+                                    const dominantColor = neighbors.find(n => n && n.code === dominantCode);
+                                    if (dominantColor && dominantColor.code !== currentColor.code) {
+                                        newPattern[y][x] = dominantColor;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                this.state.pattern = newPattern;
+            },
+
+            alignPixels() {
+                const { gridWidth, gridHeight } = this.state;
+                const pattern = this.state.pattern;
+                
+                for (let y = 0; y < gridHeight; y++) {
+                    for (let x = 0; x < gridWidth; x++) {
+                        if (pattern[y][x] !== null) {
+                            const neighbors = this.getNeighborColors(x, y);
+                            const sameColorNeighbors = neighbors.filter(n => n && n.code === pattern[y][x].code);
+                            
+                            if (sameColorNeighbors.length >= 2) {
+                                const directions = [
+                                    [-1, 0], [1, 0], [0, -1], [0, 1]
+                                ];
+                                
+                                for (const [dx, dy] of directions) {
+                                    const nx = x + dx;
+                                    const ny = y + dy;
+                                    
+                                    if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
+                                        if (pattern[ny][nx] === null) {
+                                            const diagonalNeighbors = this.getDiagonalNeighbors(nx, ny);
+                                            const sameDiagonal = diagonalNeighbors.filter(n => n && n.code === pattern[y][x].code);
+                                            
+                                            if (sameDiagonal.length >= 2) {
+                                                pattern[ny][nx] = pattern[y][x];
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+
+            getDiagonalNeighbors(x, y) {
+                const neighbors = [];
+                const { gridWidth, gridHeight } = this.state;
+                
+                const directions = [
+                    [-1, -1], [1, -1], [-1, 1], [1, 1]
+                ];
+                
+                for (const [dx, dy] of directions) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    
+                    if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
+                        if (this.state.pattern[ny][nx] !== null) {
+                            neighbors.push(this.state.pattern[ny][nx]);
+                        }
+                    }
+                }
+                
+                return neighbors;
+            },
+
+            refreshPattern() {
+                if (this.state.imageData) {
+                    this.generatePattern();
+                } else {
+                    this.render();
+                }
+                this.updateSettings();
+            },
+
+            findClosestColor(r, g, b, colors) {
+                let minDistance = Infinity;
+                let closest = colors[0];
+
+                for (const color of colors) {
+                    const distance = this.colorDistance(r, g, b, color.hex);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closest = color;
+                    }
+                }
+
+                return closest;
+            },
+
+            colorDistance(r, g, b, hex) {
+                const cr = parseInt(hex.slice(1, 3), 16);
+                const cg = parseInt(hex.slice(3, 5), 16);
+                const cb = parseInt(hex.slice(5, 7), 16);
+
+                return Math.sqrt(
+                    Math.pow(r - cr, 2) +
+                    Math.pow(g - cg, 2) +
+                    Math.pow(b - cb, 2)
+                );
+            },
+
+            render() {
+                const canvas = document.getElementById('pattern-canvas');
+                const ctx = canvas.getContext('2d');
+                const { gridWidth, gridHeight, showGrid, showCoordinates, showColorCodes, zoom } = this.state;
+
+                const cellSize = 20 * zoom;
+                const offsetX = 30 * zoom;
+                const offsetY = 30 * zoom;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                for (let y = 0; y < gridHeight; y++) {
+                    for (let x = 0; x < gridWidth; x++) {
+                        const posX = offsetX + x * cellSize;
+                        const posY = offsetY + y * cellSize;
+
+                        const color = this.state.pattern && this.state.pattern[y] ? this.state.pattern[y][x] : null;
+
+                        if (color) {
+                            ctx.fillStyle = color.hex;
+                            ctx.fillRect(posX + 1, posY + 1, cellSize - 2, cellSize - 2);
+                        } else {
+                            ctx.fillStyle = '#f5f5f5';
+                            ctx.fillRect(posX + 1, posY + 1, cellSize - 2, cellSize - 2);
+                        }
+
+                        if (showGrid) {
+                            ctx.strokeStyle = '#999999';
+                            ctx.lineWidth = 1.5;
+                            ctx.strokeRect(posX, posY, cellSize, cellSize);
+                        }
+
+                        if (showColorCodes && color) {
+                            ctx.fillStyle = this.getContrastColor(color.hex);
+                            ctx.font = `bold ${10 * zoom}px Arial`;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(color.code, posX + cellSize / 2, posY + cellSize / 2);
+                        }
+                    }
+                }
+
+                if (showCoordinates) {
+                    ctx.fillStyle = '#333333';
+                    ctx.font = `bold ${12 * zoom}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    for (let x = 0; x < gridWidth; x++) {
+                        ctx.fillText(x.toString(), offsetX + x * cellSize + cellSize / 2, offsetY - 12 * zoom);
+                    }
+
+                    ctx.textAlign = 'right';
+                    for (let y = 0; y < gridHeight; y++) {
+                        ctx.fillText(y.toString(), offsetX - 12 * zoom, offsetY + y * cellSize + cellSize / 2);
+                    }
+                }
+            },
+
+            getContrastColor(hex) {
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                return brightness > 128 ? '#000000' : '#FFFFFF';
+            },
+
+            bindCanvasEvents() {
+                const canvas = document.getElementById('pattern-canvas');
+                
+                canvas.addEventListener('mousedown', (e) => {
+                    this.state.isMouseDown = true;
+                    this.handleCanvasClick(e);
+                });
+                
+                canvas.addEventListener('mousemove', (e) => {
+                    if (this.state.isMouseDown && this.state.editTool === 'brush') {
+                        this.handleCanvasClick(e);
+                    }
+                });
+                
+                canvas.addEventListener('mouseup', () => {
+                    this.state.isMouseDown = false;
+                    this.saveEditState();
+                });
+                
+                canvas.addEventListener('mouseleave', () => {
+                    this.state.isMouseDown = false;
+                });
+            },
+
+            handleCanvasClick(e) {
+                const canvas = document.getElementById('pattern-canvas');
+                const rect = canvas.getBoundingClientRect();
+                
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const cellSize = 20 * this.state.zoom;
+                const offsetX = 30 * this.state.zoom;
+                const offsetY = 30 * this.state.zoom;
+                
+                const gridX = Math.floor((x - offsetX) / cellSize);
+                const gridY = Math.floor((y - offsetY) / cellSize);
+                
+                if (gridX >= 0 && gridX < this.state.gridWidth && 
+                    gridY >= 0 && gridY < this.state.gridHeight) {
+                    
+                    if (this.state.editTool === 'brush') {
+                        this.paintCell(gridX, gridY, this.state.editColor);
+                    } else if (this.state.editTool === 'fill') {
+                        this.fillArea(gridX, gridY, this.state.editColor);
+                    } else if (this.state.editTool === 'eraser') {
+                        this.paintCell(gridX, gridY, null);
+                    }
+                }
+            },
+
+            paintCell(x, y, color) {
+                if (!this.state.pattern) return;
+                
+                const oldColor = this.state.pattern[y][x];
+                if (oldColor === color) return;
+                
+                this.state.pattern[y][x] = color;
+                this.state.colorMap[color ? color.code : 'erased'] = color || { code: 'erased', name: '擦除', hex: '#f5f5f5' };
+                
+                this.render();
+                this.updateColorLegend();
+            },
+
+            fillArea(startX, startY, fillColor) {
+                if (!this.state.pattern) return;
+                
+                const targetColor = this.state.pattern[startY][startX];
+                if (targetColor === fillColor) return;
+                
+                const visited = new Set();
+                const stack = [[startX, startY]];
+                const changes = [];
+                
+                while (stack.length > 0) {
+                    const [x, y] = stack.pop();
+                    const key = `${x},${y}`;
+                    
+                    if (visited.has(key)) continue;
+                    if (x < 0 || x >= this.state.gridWidth || y < 0 || y >= this.state.gridHeight) continue;
+                    if (this.state.pattern[y][x] !== targetColor) continue;
+                    
+                    visited.add(key);
+                    this.state.pattern[y][x] = fillColor;
+                    changes.push({ x, y, oldColor: targetColor, newColor: fillColor });
+                    
+                    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+                }
+                
+                if (changes.length > 0) {
+                    this.state.colorMap[fillColor ? fillColor.code : 'erased'] = fillColor || { code: 'erased', name: '擦除', hex: '#f5f5f5' };
+                    this.render();
+                    this.updateColorLegend();
+                }
+            },
+
+            selectTool(tool) {
+                this.state.editTool = tool;
+                
+                document.querySelectorAll('.tool-btn-inline').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.getElementById(`tool-${tool}`).classList.add('active');
+            },
+
+            updateEditColor() {
+                const hex = document.getElementById('edit-color-inline').value;
+                const brandColors = this.brands[this.state.brand].colors;
+                
+                let closestColor = brandColors[0];
+                let minDistance = Infinity;
+                
+                for (const color of brandColors) {
+                    const distance = this.colorDistance(
+                        parseInt(hex.slice(1, 3), 16),
+                        parseInt(hex.slice(3, 5), 16),
+                        parseInt(hex.slice(5, 7), 16),
+                        color.hex
+                    );
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestColor = color;
+                    }
+                }
+                
+                this.state.editColor = closestColor;
+                document.getElementById('edit-color-inline').value = closestColor.hex;
+                document.getElementById('edit-color-code-inline').textContent = closestColor.code;
+            },
+
+            saveEditState() {
+                if (!this.state.pattern) return;
+                
+                const patternCopy = JSON.parse(JSON.stringify(this.state.pattern));
+                
+                if (this.state.editHistoryIndex < this.state.editHistory.length - 1) {
+                    this.state.editHistory = this.state.editHistory.slice(0, this.state.editHistoryIndex + 1);
+                }
+                
+                this.state.editHistory.push(patternCopy);
+                this.state.editHistoryIndex = this.state.editHistory.length - 1;
+                
+                if (this.state.editHistory.length > 50) {
+                    this.state.editHistory.shift();
+                    this.state.editHistoryIndex--;
+                }
+            },
+
+            undo() {
+                if (this.state.editHistory.length === 0) return;
+                
+                if (this.state.editHistoryIndex > 0) {
+                    this.state.editHistoryIndex--;
+                    this.state.pattern = JSON.parse(JSON.stringify(this.state.editHistory[this.state.editHistoryIndex]));
+                    this.render();
+                    this.updateColorLegend();
+                } else if (this.state.editHistoryIndex === 0) {
+                    this.state.editHistoryIndex = -1;
+                    this.render();
+                    this.updateColorLegend();
+                }
+            },
+
+            redo() {
+                if (this.state.editHistory.length === 0) return;
+                
+                if (this.state.editHistoryIndex < this.state.editHistory.length - 1) {
+                    this.state.editHistoryIndex++;
+                    this.state.pattern = JSON.parse(JSON.stringify(this.state.editHistory[this.state.editHistoryIndex]));
+                    this.render();
+                    this.updateColorLegend();
+                }
+            },
+
+            saveEdits() {
+                if (!this.state.pattern) {
+                    alert('请先生成拼豆图纸');
+                    return;
+                }
+                
+                this.saveEditState();
+                localStorage.setItem('bead_edited_pattern', JSON.stringify({
+                    pattern: this.state.pattern,
+                    colorMap: this.state.colorMap,
+                    timestamp: Date.now()
+                }));
+                alert('编辑已保存!');
+            },
+
+            updateStats() {
+                const { gridWidth, gridHeight, colorMap } = this.state;
+                document.getElementById('total-cells').textContent = gridWidth * gridHeight;
+                document.getElementById('used-colors').textContent = Object.keys(colorMap).length;
+            },
+
+            countColors() {
+                const counts = {};
+                const { gridWidth, gridHeight, pattern } = this.state;
+                if (!pattern) return counts;
+
+                for (let y = 0; y < gridHeight; y++) {
+                    for (let x = 0; x < gridWidth; x++) {
+                        const color = pattern[y][x];
+                        if (color) {
+                            counts[color.code] = (counts[color.code] || 0) + 1;
+                        }
+                    }
+                }
+                return counts;
+            },
+
+            updateColorLegend() {
+                const container = document.getElementById('color-legend-content');
+                container.innerHTML = '';
+
+                const colors = Object.values(this.state.colorMap);
+                const colorCounts = this.countColors();
+                
+                // 按色号排序
+                colors.sort((a, b) => a.code.localeCompare(b.code));
+                
+                colors.forEach(color => {
+                    const count = colorCounts[color.code] || 0;
+                    const div = document.createElement('div');
+                    div.className = 'color-item';
+                    div.innerHTML = `
+                        <div class="color-swatch" style="background-color: ${color.hex}"></div>
+                        <div class="color-info">
+                            <span class="color-name">${color.name}</span>
+                            <span class="color-code">${color.code}</span>
+                        </div>
+                        <div class="color-count" style="font-weight: bold; font-size: 0.9rem; color: #667eea; margin-left: 10px;">
+                            ${count} 粒
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            },
+
+            zoom(delta) {
+                this.state.zoom = Math.max(0.2, Math.min(2, this.state.zoom + delta));
+                document.getElementById('zoom-level').textContent = Math.round(this.state.zoom * 100) + '%';
+                this.setupCanvas();
+                this.render();
+            },
+
+            downloadPattern() {
+                const canvas = document.getElementById('pattern-canvas');
+                const colors = Object.values(this.state.colorMap);
+                colors.sort((a, b) => a.code.localeCompare(b.code)); // Sort colors by code
+                
+                const downloadCanvas = document.createElement('canvas');
+                const downloadCtx = downloadCanvas.getContext('2d');
+                
+                const patternWidth = canvas.width;
+                const patternHeight = canvas.height;
+                
+                // Pass patternWidth to calculate dynamic height
+                const legendHeight = this.calculateLegendHeight(colors.length, patternWidth);
+                const totalHeight = patternHeight + legendHeight;
+                
+                downloadCanvas.width = patternWidth;
+                downloadCanvas.height = totalHeight;
+                
+                downloadCtx.fillStyle = '#ffffff';
+                downloadCtx.fillRect(0, 0, patternWidth, totalHeight);
+                
+                downloadCtx.drawImage(canvas, 0, 0);
+                
+                this.drawColorLegend(downloadCtx, patternHeight, patternWidth, colors);
+                
+                const link = document.createElement('a');
+                link.download = `拼豆图纸_${this.brands[this.state.brand].name}_${Date.now()}.png`;
+                link.href = downloadCanvas.toDataURL('image/png', 1.0);
+                link.click();
+            },
+
+            calculateLegendHeight(colorCount, patternWidth) {
+                // Dynamic columns based on width, min 200px per column
+                const minColWidth = 200;
+                const padding = 40;
+                const availableWidth = patternWidth - padding;
+                let cols = Math.floor(availableWidth / minColWidth);
+                cols = Math.max(1, cols);
+                
+                const rows = Math.ceil(colorCount / cols);
+                const itemHeight = 40;
+                const headerHeight = 60;
+                return headerHeight + rows * itemHeight + padding;
+            },
+
+            drawColorLegend(ctx, startY, width, colors) {
+                const padding = 20;
+                const headerHeight = 60;
+                const itemHeight = 40;
+                
+                // Dynamic columns based on width, min 200px per column
+                const minColWidth = 200;
+                const availableWidth = width - padding * 2;
+                let cols = Math.floor(availableWidth / minColWidth);
+                cols = Math.max(1, cols);
+                
+                const itemWidth = availableWidth / cols;
+                const colorCounts = this.countColors();
+                
+                ctx.fillStyle = '#f8f9fa';
+                ctx.fillRect(0, startY, width, ctx.canvas.height - startY);
+                
+                ctx.strokeStyle = '#dee2e6';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, startY);
+                ctx.lineTo(width, startY);
+                ctx.stroke();
+                
+                ctx.fillStyle = '#333333';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                ctx.fillText(`色值列表 - ${this.brands[this.state.brand].name}`, padding, startY + 15);
+                
+                ctx.font = '12px Arial';
+                ctx.fillStyle = '#666666';
+                ctx.fillText(`生成时间: ${new Date().toLocaleString()}`, padding, startY + 35);
+                
+                colors.forEach((color, index) => {
+                    const col = index % cols;
+                    const row = Math.floor(index / cols);
+                    
+                    const x = padding + col * itemWidth;
+                    const y = startY + headerHeight + row * itemHeight;
+                    const count = colorCounts[color.code] || 0;
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.fillRect(x, y + 5, 30, 30);
+                    
+                    ctx.strokeStyle = '#cccccc';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y + 5, 30, 30);
+                    
+                    ctx.fillStyle = '#333333';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(`${color.code}`, x + 40, y + 20);
+                    
+                    ctx.fillStyle = '#666666';
+                    ctx.font = '11px Arial';
+                    ctx.fillText(color.name, x + 85, y + 20);
+                    
+                    ctx.fillStyle = '#e63946';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.fillText(`${count}粒`, x + 150, y + 20);
+                });
+            },
+
+            exportColorList() {
+                const colors = Object.values(this.state.colorMap);
+                if (colors.length === 0) {
+                    alert('请先生成拼豆图纸');
+                    return;
+                }
+                
+                const colorCounts = this.countColors();
+                colors.sort((a, b) => a.code.localeCompare(b.code));
+
+                let content = `拼豆色值列表\n`;
+                content += `品牌: ${this.brands[this.state.brand].name}\n`;
+                content += `生成时间: ${new Date().toLocaleString()}\n`;
+                content += `使用颜色数: ${colors.length}\n`;
+                content += `总格数: ${this.state.gridWidth * this.state.gridHeight}\n\n`;
+                content += `色值代码\t数量\t颜色名称\t十六进制\n`;
+                content += `------------------------------------------------\n`;
+
+                colors.forEach(color => {
+                    const count = colorCounts[color.code] || 0;
+                    content += `${color.code}\t${count}\t${color.name}\t${color.hex}\n`;
+                });
+
+                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                const link = document.createElement('a');
+                link.download = `色值列表_${this.brands[this.state.brand].name}_${Date.now()}.txt`;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+            },
+
+            saveSettings() {
+                localStorage.setItem('bead_settings', JSON.stringify({
+                    brand: this.state.brand,
+                    beadSize: this.state.beadSize,
+                    gridWidth: this.state.gridWidth,
+                    gridHeight: this.state.gridHeight,
+                    samplingScale: this.state.samplingScale, // 保存采样设置
+                    mergeThreshold: this.state.mergeThreshold,
+                    colorCount: this.state.colorCount,
+                    brightness: this.state.brightness,
+                    contrast: this.state.contrast,
+                    saturation: this.state.saturation,
+                    showGrid: this.state.showGrid,
+                    showCoordinates: this.state.showCoordinates,
+                    showColorCodes: this.state.showColorCodes
+                }));
+            },
+
+            loadSettings() {
+                const saved = localStorage.getItem('bead_settings');
+                if (saved) {
+                    try {
+                        const settings = JSON.parse(saved);
+                        this.state = { ...this.state, ...settings };
+                        // 确保 imageData 不被 settings 覆盖（因为 settings 里没有存图）
+                        // 实际上 settings 里只存了配置项，应该不会覆盖 imageData，但为了安全起见要注意
+                        
+                        document.getElementById('brand-select').value = this.state.brand;
+                        document.getElementById('bead-size').value = this.state.beadSize;
+                        
+                        // 恢复滑块值（取长边）
+                        const maxSide = Math.max(this.state.gridWidth, this.state.gridHeight);
+                        const slider = document.getElementById('grid-size-slider');
+                        if (slider) {
+                            slider.value = maxSide;
+                            document.getElementById('grid-size-display').textContent = this.state.gridWidth;
+                            document.getElementById('grid-size-height-display').textContent = this.state.gridHeight;
+                        }
+
+                        document.getElementById('sampling-scale').value = this.state.samplingScale || 8;
+                        document.getElementById('sampling-scale-display').textContent = this.state.samplingScale || 8;
+
+                        document.getElementById('merge-threshold').value = this.state.mergeThreshold || 0;
+                        document.getElementById('merge-threshold-display').textContent = this.state.mergeThreshold || 0;
+
+                        document.getElementById('color-count').value = this.state.colorCount;
+                        document.getElementById('color-count-display').textContent = this.state.colorCount;
+                        document.getElementById('brightness').value = this.state.brightness || 0;
+                        document.getElementById('contrast').value = this.state.contrast || 0;
+                        document.getElementById('saturation').value = this.state.saturation || 0;
+                        document.getElementById('brightness-display').textContent = this.state.brightness || 0;
+                        document.getElementById('contrast-display').textContent = this.state.contrast || 0;
+                        document.getElementById('saturation-display').textContent = this.state.saturation || 0;
+                        document.getElementById('show-grid').checked = this.state.showGrid;
+                        document.getElementById('show-coordinates').checked = this.state.showCoordinates;
+                        document.getElementById('show-color-codes').checked = this.state.showColorCodes;
+                        document.getElementById('current-brand').textContent = this.brands[this.state.brand].name;
+                    } catch (e) {
+                        console.error('加载设置失败:', e);
+                    }
+                }
+            },
+
+            // --- 原图编辑功能 ---
+
+            openImageEditor() {
+                if (!this.state.imageData) {
+                    alert('请先上传图片');
+                    return;
+                }
+
+                const modal = document.getElementById('image-editor-modal');
+                // 先显示模态框，确保能获取到正确的容器尺寸
+                modal.style.display = 'block';
+
+                // 使用 setTimeout 确保 DOM 已经渲染，能够获取正确的 clientWidth/clientHeight
+                setTimeout(() => {
+                    // 1. 先绑定事件（这会替换 DOM 节点，重置 Canvas）
+                    // 必须先做这一步，否则绘制的内容会被新 Canvas 覆盖掉
+                    this.bindImageEditorEvents();
+                    
+                    // 2. 获取最新的 Canvas 和 Context (由 bindImageEditorEvents 更新)
+                    const canvas = this.state.imgEditState.canvas;
+                    const ctx = this.state.imgEditState.ctx;
+                    
+                    // 初始化历史记录
+                    this.state.imgEditState.history = [];
+                    this.state.imgEditState.historyIndex = -1;
+                    
+                    // 3. 计算尺寸
+                    const img = this.state.imageData;
+                    const modalBody = modal.querySelector('.modal-body');
+                    const editorContainer = modal.querySelector('.editor-canvas-container');
+                    
+                    // 获取容器的实际可用空间
+                    const containerWidth = editorContainer.clientWidth;
+                    const containerHeight = editorContainer.clientHeight;
+                    
+                    if (containerWidth === 0 || containerHeight === 0) {
+                        console.error('Canvas container size is 0');
+                        return;
+                    }
+                    
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    // 缩放以适应屏幕 (保留一点边距)
+                    const padding = 20;
+                    const availableWidth = containerWidth - padding * 2;
+                    const availableHeight = containerHeight - padding * 2;
+                    
+                    const scale = Math.min(1, Math.min(availableWidth / width, availableHeight / height));
+                    
+                    // 4. 设置 Canvas 尺寸
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // 设置显示尺寸（CSS）
+                    canvas.style.width = (width * scale) + 'px';
+                    canvas.style.height = (height * scale) + 'px';
+                    canvas.style.display = 'block'; // 确保显示
+                    
+                    // 5. 绘制图片
+                    ctx.clearRect(0, 0, width, height);
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // 6. 保存初始状态
+                    this.saveImageHistory();
+                    
+                    // 7. 默认工具
+                    this.setImageTool('eraser');
+                }, 50); // 稍微增加延时，确保布局稳定
+            },
+            
+            closeImageEditor() {
+                const modal = document.getElementById('image-editor-modal');
+                modal.style.display = 'none';
+                
+                // 解绑事件（可选，简化起见这里不强制解绑，因为模态框隐藏了）
+            },
+            
+            setImageTool(tool) {
+                this.state.imgEditState.tool = tool;
+                
+                // 更新UI
+                document.getElementById('img-tool-eraser').classList.remove('active');
+                document.getElementById('img-tool-restore').classList.remove('active');
+                document.getElementById(`img-tool-${tool}`).classList.add('active');
+                
+                const canvas = document.getElementById('image-editor-canvas');
+                if (tool === 'eraser') {
+                    canvas.style.cursor = 'crosshair';
+                } else {
+                    canvas.style.cursor = 'cell';
+                }
+            },
+            
+            bindImageEditorEvents() {
+                const canvas = document.getElementById('image-editor-canvas');
+                
+                // 移除旧的监听器以防重复绑定
+                const newCanvas = canvas.cloneNode(true);
+                canvas.parentNode.replaceChild(newCanvas, canvas);
+                this.state.imgEditState.canvas = newCanvas;
+                this.state.imgEditState.ctx = newCanvas.getContext('2d');
+                
+                // 重新绑定
+                newCanvas.addEventListener('mousedown', this.handleImageEditStart.bind(this));
+                newCanvas.addEventListener('mousemove', this.handleImageEditMove.bind(this));
+                newCanvas.addEventListener('mouseup', this.handleImageEditEnd.bind(this));
+                newCanvas.addEventListener('mouseleave', this.handleImageEditEnd.bind(this));
+                
+                // 触摸支持
+                newCanvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault(); // 防止滚动
+                    this.handleImageEditStart(e.touches[0]);
+                });
+                newCanvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    this.handleImageEditMove(e.touches[0]);
+                });
+                newCanvas.addEventListener('touchend', this.handleImageEditEnd.bind(this));
+            },
+            
+            getCanvasCoordinates(e) {
+                const canvas = this.state.imgEditState.canvas;
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                
+                return {
+                    x: (e.clientX - rect.left) * scaleX,
+                    y: (e.clientY - rect.top) * scaleY
+                };
+            },
+            
+            handleImageEditStart(e) {
+                this.state.imgEditState.isDrawing = true;
+                const { x, y } = this.getCanvasCoordinates(e);
+                this.drawOnImage(x, y);
+            },
+            
+            handleImageEditMove(e) {
+                if (!this.state.imgEditState.isDrawing) return;
+                const { x, y } = this.getCanvasCoordinates(e);
+                this.drawOnImage(x, y);
+            },
+            
+            handleImageEditEnd() {
+                if (this.state.imgEditState.isDrawing) {
+                    this.state.imgEditState.isDrawing = false;
+                    this.saveImageHistory();
+                }
+            },
+            
+            drawOnImage(x, y) {
+                const ctx = this.state.imgEditState.ctx;
+                const size = parseInt(document.getElementById('brush-size').value);
+                const tool = this.state.imgEditState.tool;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                
+                if (tool === 'eraser') {
+                    // 橡皮擦：清除像素（变透明）
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.fillStyle = 'rgba(0,0,0,1)';
+                    ctx.fill();
+                    ctx.globalCompositeOperation = 'source-over'; // 恢复默认
+                } else if (tool === 'restore') {
+                    // 恢复画笔：从原始图片绘制回来
+                    // 这里利用 clip() 和 drawImage 来实现局部恢复
+                    ctx.save();
+                    ctx.clip(); // 将当前路径（圆形）作为剪切区域
+                    
+                    // 确保我们有原始图片
+                    const originalImg = this.state.originalImageData || this.state.imageData;
+                    
+                    // 在剪切区域内绘制原始图片
+                    // 注意：这里我们绘制整个原始图片，但因为有 clip()，只有圆形区域会被绘制出来
+                    // 且因为是 source-over，它会覆盖在当前透明或被修改的区域上
+                    ctx.clearRect(x - size - 1, y - size - 1, size * 2 + 2, size * 2 + 2); // 先清除该区域，防止半透明叠加
+                    ctx.drawImage(originalImg, 0, 0, ctx.canvas.width, ctx.canvas.height);
+                    
+                    ctx.restore();
+                }
+            },
+            
+            saveImageHistory() {
+                const { canvas, history, historyIndex } = this.state.imgEditState;
+                
+                // 如果当前不在历史记录末尾，则删除后面的记录
+                if (historyIndex < history.length - 1) {
+                    this.state.imgEditState.history = history.slice(0, historyIndex + 1);
+                }
+                
+                // 保存当前状态（ImageData）
+                const imageData = this.state.imgEditState.ctx.getImageData(0, 0, canvas.width, canvas.height);
+                this.state.imgEditState.history.push(imageData);
+                this.state.imgEditState.historyIndex++;
+                
+                // 限制历史记录长度
+                if (this.state.imgEditState.history.length > 20) {
+                    this.state.imgEditState.history.shift();
+                    this.state.imgEditState.historyIndex--;
+                }
+            },
+            
+            undoImageEdit() {
+                const { ctx, history, historyIndex } = this.state.imgEditState;
+                
+                if (historyIndex > 0) {
+                    this.state.imgEditState.historyIndex--;
+                    const prevImageData = history[this.state.imgEditState.historyIndex];
+                    ctx.putImageData(prevImageData, 0, 0);
+                }
+            },
+            
+            saveImageEditorChanges() {
+                const canvas = this.state.imgEditState.canvas;
+                
+                // 将Canvas内容转换为Image对象
+                const newImg = new Image();
+                newImg.onload = () => {
+                    this.state.imageData = newImg;
+                    
+                    // 更新预览图
+                    const previewImg = document.getElementById('image-preview');
+                    previewImg.src = newImg.src;
+                    
+                    // 关闭模态框
+                    this.closeImageEditor();
+                    
+                    // 重新生成图纸
+                    this.generatePattern();
+                    
+                    alert('图片修改已应用，图纸已更新');
+                };
+                newImg.src = canvas.toDataURL('image/png');
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+</body>
+</html>
